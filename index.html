@@ -1,0 +1,901 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Registro de Horas Extra · Metalcortes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    :root {
+      --mc-red: #E0332F;
+      --mc-red-dark: #B81F1B;
+      --mc-gray: #595959;
+      --mc-bg: #F6F6F6;
+    }
+    html, body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--mc-bg); }
+    .mc-red-bg { background-color: var(--mc-red); }
+    .mc-red-text { color: var(--mc-red); }
+    .mc-red-border { border-color: var(--mc-red); }
+    .mc-gray-text { color: var(--mc-gray); }
+    .row-festivo { background-color: #FEF2F2; }
+    .row-festivo:hover { background-color: #FEE2E2; }
+    .row-normal:hover { background-color: #F9FAFB; }
+    /* Logo M/C inicial */
+    .logo-mc {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      background: var(--mc-red);
+      color: white;
+      font-weight: 800;
+      font-size: 18px;
+      letter-spacing: -0.5px;
+      border-radius: 6px;
+    }
+    /* Inputs */
+    input[type=date], input[type=time], select, input[type=text] {
+      border: 1px solid #D1D5DB;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 14px;
+      background: white;
+      width: 100%;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    input[type=date]:focus, input[type=time]:focus, select:focus, input[type=text]:focus {
+      outline: none;
+      border-color: var(--mc-red);
+      box-shadow: 0 0 0 3px rgba(224,51,47,0.15);
+    }
+    .btn-primary {
+      background: var(--mc-red);
+      color: white;
+      padding: 10px 18px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 14px;
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--mc-red-dark); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary {
+      background: white;
+      color: var(--mc-gray);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-weight: 500;
+      font-size: 13px;
+      border: 1px solid #D1D5DB;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-secondary:hover { background: #F9FAFB; border-color: #9CA3AF; }
+    .btn-danger {
+      color: var(--mc-red);
+      background: transparent;
+      border: 1px solid #FCA5A5;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-weight: 500;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-danger:hover { background: #FEF2F2; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .badge-dom { background: #FEE2E2; color: #991B1B; }
+    .badge-fest { background: #FEF3C7; color: #92400E; }
+    .badge-sab { background: #DBEAFE; color: #1E40AF; }
+    .badge-noc { background: #E0E7FF; color: #3730A3; }
+    .stat-card {
+      background: white;
+      border-radius: 8px;
+      padding: 14px 16px;
+      border: 1px solid #E5E7EB;
+    }
+    .stat-label { font-size: 11px; color: var(--mc-gray); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+    .stat-value { font-size: 22px; font-weight: 700; color: #111827; margin-top: 4px; }
+    .table-hdr { background: #F3F4F6; font-size: 11px; font-weight: 600; color: var(--mc-gray); letter-spacing: 0.05em; text-transform: uppercase; }
+    /* Cabecera del grupo de empleado */
+    .group-header {
+      background: linear-gradient(to right, #1F2937 0%, #374151 100%);
+      color: white;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .group-header:hover { background: linear-gradient(to right, #111827 0%, #1F2937 100%); }
+    .group-header-cell { padding: 10px 16px; font-weight: 600; }
+    .group-subtotal { color: #FCA5A5; font-weight: 700; }
+    .group-chevron {
+      display: inline-block;
+      width: 14px;
+      transition: transform 0.15s;
+      font-size: 10px;
+      color: #9CA3AF;
+    }
+    .group-chevron.collapsed { transform: rotate(-90deg); }
+    /* Pequeña separación visual entre grupos */
+    .group-spacer td { padding: 4px 0; background: #F9FAFB; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    // ============================================================
+    // DATOS MAESTROS
+    // ============================================================
+
+    const EMPLEADOS = [
+      "ALBERT JONNY MONTENEGRO AMEZQUITA",
+      "ALEXANDER MARQUEZ",
+      "ALEXANDRO RAMIREZ",
+      "BRAYAN DANILO RODRIGUEZ",
+      "BRAYAN URIBE",
+      "CRISTIAN GASPAR",
+      "DANNY EDWIN GONZALEZ OROZCO (ARKADE)",
+      "EDILSON MARULANDA VALENCIA",
+      "FRANCISCO MOMPOTES",
+      "GUILLERMO ARIAS TEJADA",
+      "GUSTAVO ADOLFO PALACIO CASTRO",
+      "HERNANDO SERNA",
+      "ILMO CORREA RODRIGUEZ",
+      "JACKSON CASTRO",
+      "JEFFERSON MARTINEZ",
+      "JEISON GUAPACHA",
+      "JESUS ALFREDIS MARTINEZ",
+      "JHONATAN OSORIO",
+      "JORGE IVAN GONZALEZ",
+      "LEANDRO JOSE LIMPIO LIMPIO",
+      "LLEINER AUGUSTO VASQUEZ OSPINA",
+      "MATEO MARTINEZ",
+      "MIGUEL ALEJANDRO CASTAÑEDA",
+      "MIGUEL ANDRES BOLAÑOS ACOSTA",
+      "ROBINSON DE JESUS DUQUE TAMAYO",
+      "WERNEY VINASCO DURAN (ARKADE)"
+    ];
+
+    // Festivos oficiales Colombia 2026 (Ley 51 de 1983)
+    const FESTIVOS_2026 = {
+      "2026-01-01": "Año Nuevo",
+      "2026-01-12": "Día de los Reyes Magos",
+      "2026-03-23": "Día de San José",
+      "2026-04-02": "Jueves Santo",
+      "2026-04-03": "Viernes Santo",
+      "2026-05-01": "Día del Trabajo",
+      "2026-05-18": "Día de la Ascensión",
+      "2026-06-08": "Corpus Christi",
+      "2026-06-15": "Sagrado Corazón de Jesús",
+      "2026-06-29": "San Pedro y San Pablo",
+      "2026-07-20": "Día de la Independencia",
+      "2026-08-07": "Batalla de Boyacá",
+      "2026-08-17": "La Asunción de la Virgen",
+      "2026-10-12": "Día de la Raza",
+      "2026-11-02": "Todos los Santos",
+      "2026-11-16": "Independencia de Cartagena",
+      "2026-12-08": "Inmaculada Concepción",
+      "2026-12-25": "Navidad"
+    };
+
+    // Jornada laboral normal Metalcortes
+    // Lunes a Viernes: 8:00 - 16:25
+    // Sábado:           8:00 - 12:25
+    const JORNADA = {
+      lunVie: { inicio: "08:00", fin: "16:25" },
+      sabado: { inicio: "08:00", fin: "12:25" }
+    };
+
+    // Jornadas legales Colombia (Ley 2101 de 2021, vigente)
+    // Diurna:  6:00 - 19:00
+    // Nocturna: 19:00 - 6:00
+    const DIURNA_INICIO = 6 * 60;       // 6:00 en minutos
+    const DIURNA_FIN    = 19 * 60;      // 19:00 en minutos
+    const DIA_MIN       = 24 * 60;      // 24:00
+
+    // ============================================================
+    // UTILIDADES DE TIEMPO
+    // ============================================================
+
+    /** Convierte "HH:MM" a minutos desde medianoche. */
+    function hmToMin(hm) {
+      if (!hm) return null;
+      const [h, m] = hm.split(":").map(Number);
+      return h * 60 + m;
+    }
+
+    /** Convierte minutos a "HH:MM". */
+    function minToHm(min) {
+      const m = ((min % DIA_MIN) + DIA_MIN) % DIA_MIN;
+      return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+    }
+
+    /** Devuelve el día de la semana de una fecha YYYY-MM-DD interpretada como local. */
+    function dowOf(fechaIso) {
+      const [y, m, d] = fechaIso.split("-").map(Number);
+      const dt = new Date(y, m - 1, d);  // local time, no UTC
+      return dt.getDay();  // 0=Domingo, 1=Lunes ... 6=Sábado
+    }
+
+    /** Etiqueta del día de la semana en español. */
+    const DOW_LABEL = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+    /** Formatea fecha YYYY-MM-DD a "DD/MM/YYYY". */
+    function fmtFecha(iso) {
+      const [y, m, d] = iso.split("-");
+      return `${d}/${m}/${y}`;
+    }
+
+    // ============================================================
+    // CÁLCULO DE HORAS EXTRA
+    // ============================================================
+
+    /**
+     * Calcula intersección entre [a1, a2) y [b1, b2) en minutos.
+     * Cualquier extremo puede ser > 24h para periodos cruzando medianoche.
+     */
+    function intersect(a1, a2, b1, b2) {
+      const start = Math.max(a1, b1);
+      const end   = Math.min(a2, b2);
+      return Math.max(0, end - start);
+    }
+
+    /**
+     * Calcula minutos diurnos (6:00-19:00) y nocturnos (19:00-6:00) dentro de [start, end].
+     * Maneja periodos que cruzan medianoche.
+     */
+    function splitDiurnoNocturno(startMin, endMin) {
+      // Si endMin <= startMin asumimos que cruza medianoche: sumamos 24h al end.
+      let s = startMin, e = endMin;
+      if (e <= s) e += DIA_MIN;
+
+      // Banda diurna día 1: [6:00, 19:00]
+      // Banda nocturna día 1: [0, 6:00] ∪ [19:00, 24:00]
+      // Banda diurna día 2: [24+6, 24+19]
+      // Banda nocturna día 2: [24, 24+6] ∪ [24+19, 48]
+      let diurno = 0, nocturno = 0;
+
+      // Día 1
+      diurno   += intersect(s, e, DIURNA_INICIO, DIURNA_FIN);
+      nocturno += intersect(s, e, 0, DIURNA_INICIO);
+      nocturno += intersect(s, e, DIURNA_FIN, DIA_MIN);
+
+      // Día 2 (si cruza)
+      if (e > DIA_MIN) {
+        diurno   += intersect(s, e, DIA_MIN + DIURNA_INICIO, DIA_MIN + DIURNA_FIN);
+        nocturno += intersect(s, e, DIA_MIN, DIA_MIN + DIURNA_INICIO);
+        nocturno += intersect(s, e, DIA_MIN + DIURNA_FIN, 2 * DIA_MIN);
+      }
+
+      return { diurno, nocturno };
+    }
+
+    /**
+     * Calcula los conceptos para un registro.
+     * Reglas:
+     *  - Domingo o festivo → TODO el periodo es dominical/festivo.
+     *  - Lun-Vie → la jornada ordinaria termina a las 16:25. Antes no es extra; después es extra.
+     *  - Sábado → la jornada ordinaria termina a las 12:25. Antes no es extra; después es extra.
+     *  - Las horas extra se separan en diurnas (6:00-19:00) y nocturnas (19:00-6:00).
+     */
+    function calcular(reg) {
+      const { fecha, inicio, fin } = reg;
+      const dow = dowOf(fecha);
+      const esFestivo = !!FESTIVOS_2026[fecha];
+      const esDomingo = dow === 0;
+      const esSabado  = dow === 6;
+
+      const sMin = hmToMin(inicio);
+      const eMin = hmToMin(fin);
+
+      // Si todo el periodo es dominical o festivo, ninguna parte es jornada ordinaria.
+      // Todas las horas se contabilizan como dominicales/festivas.
+      if (esDomingo || esFestivo) {
+        const tot = splitDiurnoNocturno(sMin, eMin);
+        return {
+          horasExtraDiurnas: 0,
+          horasExtraNocturnas: 0,
+          horasDomFestDiurnas: tot.diurno / 60,
+          horasDomFestNocturnas: tot.nocturno / 60,
+          totalHoras: (tot.diurno + tot.nocturno) / 60,
+          tipoDia: esDomingo ? "Domingo" : "Festivo",
+          nombreFestivo: FESTIVOS_2026[fecha] || null,
+          diaSemana: DOW_LABEL[dow]
+        };
+      }
+
+      // Día hábil: separar lo que está dentro de la jornada ordinaria (no es extra)
+      // del periodo en horas extras.
+      const jornadaFin = esSabado ? hmToMin(JORNADA.sabado.fin) : hmToMin(JORNADA.lunVie.fin);
+
+      // Periodo efectivamente extra: max(start, jornadaFin) hasta end.
+      // (Si la persona reportó horas antes del fin de jornada, no son extra.)
+      // Soporte: también consideramos extras si start < 6:00 (madrugada antes de la jornada),
+      // ya que esas son horas adicionales. Para simplificar tratamos el rango antes de 8:00 como extra.
+      let extraMin = 0;
+      let extraDiurno = 0, extraNoct = 0;
+
+      const jornadaIni = hmToMin(esSabado ? JORNADA.sabado.inicio : JORNADA.lunVie.inicio);
+
+      // Tramo antes de la jornada (madrugada) — todo es extra
+      if (sMin < jornadaIni) {
+        const tramoEnd = Math.min(eMin <= sMin ? sMin + DIA_MIN : eMin, jornadaIni);
+        const r = splitDiurnoNocturno(sMin, tramoEnd);
+        extraDiurno += r.diurno;
+        extraNoct   += r.nocturno;
+      }
+
+      // Tramo después del fin de jornada — todo es extra
+      const realEnd = eMin <= sMin ? eMin + DIA_MIN : eMin;
+      const tramoExtraStart = Math.max(sMin, jornadaFin);
+      if (realEnd > tramoExtraStart) {
+        const r = splitDiurnoNocturno(tramoExtraStart, realEnd);
+        extraDiurno += r.diurno;
+        extraNoct   += r.nocturno;
+      }
+
+      return {
+        horasExtraDiurnas: extraDiurno / 60,
+        horasExtraNocturnas: extraNoct / 60,
+        horasDomFestDiurnas: 0,
+        horasDomFestNocturnas: 0,
+        totalHoras: (extraDiurno + extraNoct) / 60,
+        tipoDia: esSabado ? "Sábado" : "Día hábil",
+        nombreFestivo: null,
+        diaSemana: DOW_LABEL[dow]
+      };
+    }
+
+    /** Redondea horas a 2 decimales para mostrar. */
+    function r2(n) { return Math.round(n * 100) / 100; }
+
+    /**
+     * Agrupa los registros por empleado.
+     * Devuelve un array de objetos { empleado, registros, subtotales } ordenado
+     * alfabéticamente por nombre del empleado. Dentro de cada grupo los registros
+     * se ordenan cronológicamente (fecha ascendente, luego hora de inicio ascendente).
+     */
+    function agruparPorEmpleado(regs) {
+      const map = new Map();
+      for (const r of regs) {
+        if (!map.has(r.empleado)) map.set(r.empleado, []);
+        map.get(r.empleado).push(r);
+      }
+      return Array.from(map.entries())
+        .sort(([a], [b]) => a.localeCompare(b, "es"))
+        .map(([empleado, registros]) => {
+          const ordenados = [...registros].sort((a, b) =>
+            a.fecha === b.fecha
+              ? (a.inicio || "").localeCompare(b.inicio || "")
+              : a.fecha.localeCompare(b.fecha)
+          );
+          const sub = { hed: 0, hen: 0, hfd: 0, hfn: 0, total: 0, count: ordenados.length };
+          for (const r of ordenados) {
+            const c = calcular(r);
+            sub.hed   += c.horasExtraDiurnas;
+            sub.hen   += c.horasExtraNocturnas;
+            sub.hfd   += c.horasDomFestDiurnas;
+            sub.hfn   += c.horasDomFestNocturnas;
+            sub.total += c.totalHoras;
+          }
+          return { empleado, registros: ordenados, subtotales: sub };
+        });
+    }
+
+    // ============================================================
+    // PERSISTENCIA LOCAL
+    // ============================================================
+
+    const STORAGE_KEY = "metalcortes.horas_extra.v1";
+
+    function loadRegs() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch { return []; }
+    }
+
+    function saveRegs(regs) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(regs)); } catch {}
+    }
+
+    // ============================================================
+    // EXPORTACIÓN CSV
+    // ============================================================
+
+    function downloadCsv(regs) {
+      const headers = [
+        "Empleado", "Fecha", "Día de semana", "Tipo de día", "Festivo",
+        "Hora inicio", "Hora fin",
+        "HE Diurnas", "HE Nocturnas",
+        "Dom/Fest Diurnas", "Dom/Fest Nocturnas",
+        "Total horas"
+      ];
+
+      const grupos = agruparPorEmpleado(regs);
+
+      // Construimos las filas: por cada empleado, sus registros + una fila SUBTOTAL,
+      // separados por una fila en blanco para que Excel los lea como bloques visuales.
+      const filas = [headers];
+      const gran = { hed: 0, hen: 0, hfd: 0, hfn: 0, total: 0, count: 0 };
+
+      grupos.forEach((g, idx) => {
+        g.registros.forEach(r => {
+          const c = calcular(r);
+          filas.push([
+            r.empleado,
+            fmtFecha(r.fecha),
+            c.diaSemana,
+            c.tipoDia,
+            c.nombreFestivo || "",
+            r.inicio,
+            r.fin,
+            r2(c.horasExtraDiurnas),
+            r2(c.horasExtraNocturnas),
+            r2(c.horasDomFestDiurnas),
+            r2(c.horasDomFestNocturnas),
+            r2(c.totalHoras)
+          ]);
+        });
+
+        // Fila de subtotal del empleado
+        filas.push([
+          `SUBTOTAL ${g.empleado}`,
+          "", "", "", "", "", `(${g.subtotales.count} registros)`,
+          r2(g.subtotales.hed),
+          r2(g.subtotales.hen),
+          r2(g.subtotales.hfd),
+          r2(g.subtotales.hfn),
+          r2(g.subtotales.total)
+        ]);
+
+        gran.hed   += g.subtotales.hed;
+        gran.hen   += g.subtotales.hen;
+        gran.hfd   += g.subtotales.hfd;
+        gran.hfn   += g.subtotales.hfn;
+        gran.total += g.subtotales.total;
+        gran.count += g.subtotales.count;
+
+        // Línea en blanco entre empleados (excepto después del último)
+        if (idx < grupos.length - 1) filas.push([]);
+      });
+
+      // Total general al final
+      if (grupos.length > 0) {
+        filas.push([]);
+        filas.push([
+          "TOTAL GENERAL", "", "", "", "", "",
+          `(${gran.count} registros)`,
+          r2(gran.hed), r2(gran.hen),
+          r2(gran.hfd), r2(gran.hfn),
+          r2(gran.total)
+        ]);
+      }
+
+      const csv = filas
+        .map(row => row.map(cell => {
+          const s = String(cell ?? "");
+          return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        }).join(";"))
+        .join("\n");
+      // BOM para que Excel detecte UTF-8 (acentos en español)
+      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const hoy = new Date().toISOString().slice(0,10);
+      a.href = url;
+      a.download = `horas_extra_metalcortes_${hoy}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // ============================================================
+    // COMPONENTES
+    // ============================================================
+
+    function Header() {
+      return (
+        <header className="bg-white border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-4">
+            <div className="logo-mc">MC</div>
+            <div>
+              <h1 className="text-lg font-bold text-gray-900 leading-tight">Metalcortes Risaralda S.A.S.</h1>
+              <p className="text-xs mc-gray-text">Gestión Humana · Registro de Horas Extra · GTHU-FM-001</p>
+            </div>
+            <div className="ml-auto text-right">
+              <div className="text-xs mc-gray-text">Herramienta provisional</div>
+              <div className="text-xs mc-gray-text">v1.0 · 2026</div>
+            </div>
+          </div>
+        </header>
+      );
+    }
+
+    function Formulario({ onAdd }) {
+      const [empleado, setEmpleado] = useState("");
+      const [fecha, setFecha] = useState("");
+      const [inicio, setInicio] = useState("");
+      const [fin, setFin] = useState("");
+      const [error, setError] = useState("");
+
+      // Vista previa del cálculo mientras el líder ingresa los datos
+      const preview = useMemo(() => {
+        if (!fecha || !inicio || !fin) return null;
+        try {
+          return calcular({ fecha, inicio, fin });
+        } catch { return null; }
+      }, [fecha, inicio, fin]);
+
+      function handleSubmit() {
+        setError("");
+        if (!empleado) { setError("Selecciona un empleado."); return; }
+        if (!fecha)    { setError("Selecciona la fecha del registro."); return; }
+        if (!inicio)   { setError("Indica la hora de inicio de las horas extra."); return; }
+        if (!fin)      { setError("Indica la hora de finalización de las horas extra."); return; }
+
+        const sMin = hmToMin(inicio);
+        const eMin = hmToMin(fin);
+        if (sMin === eMin) {
+          setError("La hora de inicio y finalización no pueden ser iguales.");
+          return;
+        }
+
+        onAdd({
+          id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
+          empleado, fecha, inicio, fin,
+          creadoEn: new Date().toISOString()
+        });
+        // Limpiamos solo hora; mantenemos empleado y fecha para registro rápido
+        setInicio(""); setFin("");
+      }
+
+      return (
+        <section className="bg-white rounded-lg border border-gray-200 p-5 mb-6">
+          <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-1">Nuevo registro</h2>
+          <p className="text-xs mc-gray-text mb-4">Agrega un registro por cada día que el empleado haya reportado horas extra.</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+            <div className="md:col-span-4">
+              <label className="block text-xs font-semibold mc-gray-text mb-1">Empleado</label>
+              <select value={empleado} onChange={e => setEmpleado(e.target.value)}>
+                <option value="">— Selecciona un empleado —</option>
+                {EMPLEADOS.map(emp => <option key={emp} value={emp}>{emp}</option>)}
+              </select>
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="block text-xs font-semibold mc-gray-text mb-1">Fecha</label>
+              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold mc-gray-text mb-1">Hora inicio</label>
+              <input type="time" value={inicio} onChange={e => setInicio(e.target.value)} step="60" />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold mc-gray-text mb-1">Hora fin</label>
+              <input type="time" value={fin} onChange={e => setFin(e.target.value)} step="60" />
+            </div>
+
+            <div className="md:col-span-1 flex items-end">
+              <button className="btn-primary w-full" onClick={handleSubmit}>Agregar</button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="mt-3 text-xs px-3 py-2 rounded bg-red-50 text-red-700 border border-red-200">
+              {error}
+            </div>
+          )}
+
+          {preview && (
+            <div className="mt-4 grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">
+              <div className="px-3 py-2 rounded bg-gray-50 border border-gray-200">
+                <div className="mc-gray-text font-semibold uppercase text-[10px]">Día</div>
+                <div className="font-medium">{preview.diaSemana}</div>
+              </div>
+              <div className={`px-3 py-2 rounded border ${preview.tipoDia === "Domingo" || preview.tipoDia === "Festivo" ? "bg-red-50 border-red-200" : "bg-gray-50 border-gray-200"}`}>
+                <div className="mc-gray-text font-semibold uppercase text-[10px]">Tipo</div>
+                <div className="font-medium">{preview.tipoDia}</div>
+                {preview.nombreFestivo && <div className="text-[10px] mt-0.5">{preview.nombreFestivo}</div>}
+              </div>
+              <div className="px-3 py-2 rounded bg-gray-50 border border-gray-200">
+                <div className="mc-gray-text font-semibold uppercase text-[10px]">HE Diurnas</div>
+                <div className="font-bold">{r2(preview.horasExtraDiurnas).toFixed(2)} h</div>
+              </div>
+              <div className="px-3 py-2 rounded bg-gray-50 border border-gray-200">
+                <div className="mc-gray-text font-semibold uppercase text-[10px]">HE Nocturnas</div>
+                <div className="font-bold">{r2(preview.horasExtraNocturnas).toFixed(2)} h</div>
+              </div>
+              <div className="px-3 py-2 rounded bg-gray-50 border border-gray-200">
+                <div className="mc-gray-text font-semibold uppercase text-[10px]">Dom/Fest D</div>
+                <div className="font-bold">{r2(preview.horasDomFestDiurnas).toFixed(2)} h</div>
+              </div>
+              <div className="px-3 py-2 rounded bg-gray-50 border border-gray-200">
+                <div className="mc-gray-text font-semibold uppercase text-[10px]">Dom/Fest N</div>
+                <div className="font-bold">{r2(preview.horasDomFestNocturnas).toFixed(2)} h</div>
+              </div>
+            </div>
+          )}
+        </section>
+      );
+    }
+
+    function Tabla({ regs, onDelete }) {
+      // Estado de grupos colapsados: { [empleado]: true } si está colapsado
+      const [colapsados, setColapsados] = useState({});
+
+      const grupos = useMemo(() => agruparPorEmpleado(regs), [regs]);
+
+      function toggleGrupo(emp) {
+        setColapsados(prev => ({ ...prev, [emp]: !prev[emp] }));
+      }
+      function expandirTodos() { setColapsados({}); }
+      function colapsarTodos() {
+        const c = {};
+        grupos.forEach(g => { c[g.empleado] = true; });
+        setColapsados(c);
+      }
+
+      if (regs.length === 0) {
+        return (
+          <div className="bg-white rounded-lg border border-gray-200 p-10 text-center">
+            <p className="mc-gray-text text-sm">Aún no hay registros. Agrega el primero con el formulario de arriba.</p>
+          </div>
+        );
+      }
+
+      return (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          {/* Barra superior con controles de grupos */}
+          <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-gray-50">
+            <div className="text-xs mc-gray-text">
+              <strong className="text-gray-900">{grupos.length}</strong> empleado{grupos.length === 1 ? "" : "s"} · <strong className="text-gray-900">{regs.length}</strong> registro{regs.length === 1 ? "" : "s"}
+            </div>
+            <div className="flex gap-2">
+              <button className="text-xs mc-gray-text hover:text-gray-900 font-medium" onClick={expandirTodos}>Expandir todos</button>
+              <span className="text-gray-300">·</span>
+              <button className="text-xs mc-gray-text hover:text-gray-900 font-medium" onClick={colapsarTodos}>Colapsar todos</button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="table-hdr">
+                <tr>
+                  <th className="text-left px-4 py-3">Fecha</th>
+                  <th className="text-left px-4 py-3">Tipo</th>
+                  <th className="text-left px-4 py-3">Horario</th>
+                  <th className="text-right px-4 py-3">HE Diur.</th>
+                  <th className="text-right px-4 py-3">HE Noct.</th>
+                  <th className="text-right px-4 py-3">D/F Diur.</th>
+                  <th className="text-right px-4 py-3">D/F Noct.</th>
+                  <th className="text-right px-4 py-3">Total</th>
+                  <th className="px-4 py-3 w-20"></th>
+                </tr>
+              </thead>
+
+              {grupos.map((g, gi) => {
+                const colapsado = !!colapsados[g.empleado];
+                const sub = g.subtotales;
+                return (
+                  <tbody key={g.empleado} className="divide-y divide-gray-100">
+                    {/* Cabecera del grupo */}
+                    <tr className="group-header" onClick={() => toggleGrupo(g.empleado)}>
+                      <td className="group-header-cell" colSpan={3}>
+                        <span className={`group-chevron ${colapsado ? "collapsed" : ""}`}>▼</span>
+                        <span className="ml-2">{g.empleado}</span>
+                        <span className="ml-2 text-xs text-gray-400 font-normal">({sub.count} {sub.count === 1 ? "registro" : "registros"})</span>
+                      </td>
+                      <td className="group-header-cell text-right group-subtotal tabular-nums">{r2(sub.hed).toFixed(2)}</td>
+                      <td className="group-header-cell text-right group-subtotal tabular-nums">{r2(sub.hen).toFixed(2)}</td>
+                      <td className="group-header-cell text-right group-subtotal tabular-nums">{r2(sub.hfd).toFixed(2)}</td>
+                      <td className="group-header-cell text-right group-subtotal tabular-nums">{r2(sub.hfn).toFixed(2)}</td>
+                      <td className="group-header-cell text-right tabular-nums text-white font-bold">{r2(sub.total).toFixed(2)}</td>
+                      <td className="group-header-cell"></td>
+                    </tr>
+
+                    {/* Filas del grupo (ocultas si está colapsado) */}
+                    {!colapsado && g.registros.map(r => {
+                      const c = calcular(r);
+                      const festivo = c.tipoDia === "Domingo" || c.tipoDia === "Festivo";
+                      return (
+                        <tr key={r.id} className={festivo ? "row-festivo" : "row-normal"}>
+                          <td className="px-4 py-3">
+                            <div className="text-gray-900">{fmtFecha(r.fecha)}</div>
+                            <div className="text-xs mc-gray-text">{c.diaSemana}</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            {c.tipoDia === "Domingo" && <span className="badge badge-dom">Domingo</span>}
+                            {c.tipoDia === "Festivo" && (
+                              <div>
+                                <span className="badge badge-fest">Festivo</span>
+                                <div className="text-[11px] mc-gray-text mt-1">{c.nombreFestivo}</div>
+                              </div>
+                            )}
+                            {c.tipoDia === "Sábado" && <span className="badge badge-sab">Sábado</span>}
+                            {c.tipoDia === "Día hábil" && <span className="text-xs mc-gray-text">Día hábil</span>}
+                          </td>
+                          <td className="px-4 py-3 text-gray-700">{r.inicio} — {r.fin}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{r2(c.horasExtraDiurnas).toFixed(2)}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{r2(c.horasExtraNocturnas).toFixed(2)}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{r2(c.horasDomFestDiurnas).toFixed(2)}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{r2(c.horasDomFestNocturnas).toFixed(2)}</td>
+                          <td className="px-4 py-3 text-right tabular-nums font-bold">{r2(c.totalHoras).toFixed(2)}</td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => onDelete(r.id)}
+                              className="text-xs mc-red-text hover:underline font-medium"
+                              title="Eliminar este registro"
+                            >Eliminar</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {/* Separador entre grupos (excepto después del último) */}
+                    {gi < grupos.length - 1 && (
+                      <tr className="group-spacer"><td colSpan={9}></td></tr>
+                    )}
+                  </tbody>
+                );
+              })}
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    function App() {
+      const [regs, setRegs] = useState(() => loadRegs());
+      const [filtroEmpleado, setFiltroEmpleado] = useState("");
+      const [filtroMes, setFiltroMes] = useState("");
+
+      useEffect(() => { saveRegs(regs); }, [regs]);
+
+      function addReg(r) { setRegs(prev => [r, ...prev]); }
+      function delReg(id) {
+        if (confirm("¿Eliminar este registro?")) setRegs(prev => prev.filter(r => r.id !== id));
+      }
+      function clearAll() {
+        if (regs.length === 0) return;
+        if (confirm(`¿Eliminar todos los ${regs.length} registros? Esta acción no se puede deshacer.`))
+          setRegs([]);
+      }
+
+      // Filtros
+      const regsVisibles = useMemo(() => {
+        return regs.filter(r => {
+          if (filtroEmpleado && r.empleado !== filtroEmpleado) return false;
+          if (filtroMes && !r.fecha.startsWith(filtroMes)) return false;
+          return true;
+        });
+      }, [regs, filtroEmpleado, filtroMes]);
+
+      // Totales
+      const totales = useMemo(() => {
+        const t = { hed: 0, hen: 0, hfd: 0, hfn: 0, total: 0 };
+        regsVisibles.forEach(r => {
+          const c = calcular(r);
+          t.hed += c.horasExtraDiurnas;
+          t.hen += c.horasExtraNocturnas;
+          t.hfd += c.horasDomFestDiurnas;
+          t.hfn += c.horasDomFestNocturnas;
+          t.total += c.totalHoras;
+        });
+        return t;
+      }, [regsVisibles]);
+
+      return (
+        <div className="min-h-screen">
+          <Header />
+
+          <main className="max-w-7xl mx-auto px-6 py-6">
+
+            {/* Aviso provisional */}
+            <div className="mb-5 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900">
+              <strong>Herramienta provisional.</strong> A futuro será integrada en el módulo del líder de Gestión Humana de la plataforma Metalcortes. Los datos se guardan localmente en este navegador.
+            </div>
+
+            <Formulario onAdd={addReg} />
+
+            {/* Tarjetas resumen */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+              <div className="stat-card">
+                <div className="stat-label">HE Diurnas</div>
+                <div className="stat-value">{r2(totales.hed).toFixed(2)} <span className="text-sm font-normal mc-gray-text">h</span></div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-label">HE Nocturnas</div>
+                <div className="stat-value">{r2(totales.hen).toFixed(2)} <span className="text-sm font-normal mc-gray-text">h</span></div>
+              </div>
+              <div className="stat-card" style={{borderLeft: "3px solid var(--mc-red)"}}>
+                <div className="stat-label">Dom/Fest Diurnas</div>
+                <div className="stat-value">{r2(totales.hfd).toFixed(2)} <span className="text-sm font-normal mc-gray-text">h</span></div>
+              </div>
+              <div className="stat-card" style={{borderLeft: "3px solid var(--mc-red)"}}>
+                <div className="stat-label">Dom/Fest Nocturnas</div>
+                <div className="stat-value">{r2(totales.hfn).toFixed(2)} <span className="text-sm font-normal mc-gray-text">h</span></div>
+              </div>
+              <div className="stat-card bg-gray-900 border-gray-900">
+                <div className="stat-label text-gray-300">Total</div>
+                <div className="stat-value text-white">{r2(totales.total).toFixed(2)} <span className="text-sm font-normal text-gray-400">h</span></div>
+              </div>
+            </div>
+
+            {/* Filtros + acciones */}
+            <section className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                <div className="md:col-span-5">
+                  <label className="block text-xs font-semibold mc-gray-text mb-1">Filtrar por empleado</label>
+                  <select value={filtroEmpleado} onChange={e => setFiltroEmpleado(e.target.value)}>
+                    <option value="">Todos los empleados</option>
+                    {EMPLEADOS.map(emp => <option key={emp} value={emp}>{emp}</option>)}
+                  </select>
+                </div>
+                <div className="md:col-span-3">
+                  <label className="block text-xs font-semibold mc-gray-text mb-1">Filtrar por mes</label>
+                  <input type="month" value={filtroMes} onChange={e => setFiltroMes(e.target.value)} />
+                </div>
+                <div className="md:col-span-4 flex gap-2 justify-end">
+                  <button className="btn-secondary" onClick={() => { setFiltroEmpleado(""); setFiltroMes(""); }}>Limpiar filtros</button>
+                  <button className="btn-secondary" onClick={() => downloadCsv(regsVisibles)} disabled={regsVisibles.length === 0}>Exportar CSV</button>
+                  <button className="btn-danger" onClick={clearAll} disabled={regs.length === 0}>Borrar todo</button>
+                </div>
+              </div>
+              <div className="mt-3 text-xs mc-gray-text">
+                Mostrando <strong>{regsVisibles.length}</strong> de <strong>{regs.length}</strong> registros.
+              </div>
+            </section>
+
+            <Tabla regs={regsVisibles} onDelete={delReg} />
+
+            {/* Reglas de cálculo */}
+            <details className="mt-6 bg-white rounded-lg border border-gray-200 p-4">
+              <summary className="text-sm font-semibold cursor-pointer text-gray-900">Reglas de cálculo aplicadas</summary>
+              <div className="mt-3 text-xs mc-gray-text space-y-2 leading-relaxed">
+                <p><strong className="text-gray-900">Jornada ordinaria Metalcortes:</strong> Lunes a Viernes de 08:00 a 16:25 · Sábados de 08:00 a 12:25.</p>
+                <p><strong className="text-gray-900">Horas extra (días hábiles):</strong> Toda hora trabajada antes del inicio o después del fin de la jornada ordinaria es hora extra.</p>
+                <p><strong className="text-gray-900">Jornada diurna vs nocturna (Ley 2101 de 2021):</strong> Diurna 06:00 – 19:00 · Nocturna 19:00 – 06:00. La calculadora divide automáticamente las horas extra entre ambos rangos cuando un mismo registro cruza la frontera.</p>
+                <p><strong className="text-gray-900">Domingos y festivos:</strong> El registro se resalta en rojo y la totalidad de las horas trabajadas se contabiliza en las columnas <em>Dom/Fest Diurnas</em> y <em>Dom/Fest Nocturnas</em>, ya que estos días tienen recargo dominical/festivo diferente al recargo ordinario por horas extra.</p>
+                <p><strong className="text-gray-900">Festivos 2026 incluidos:</strong> 18 festivos oficiales (Ley 51 de 1983) desde Año Nuevo hasta Navidad.</p>
+                <p><strong className="text-gray-900">Cruce de medianoche:</strong> Si la hora de fin es menor o igual a la hora de inicio, el periodo se interpreta como cruzando la medianoche del día siguiente.</p>
+              </div>
+            </details>
+
+            <footer className="mt-8 mb-4 text-center text-xs mc-gray-text">
+              Metalcortes Risaralda S.A.S. · Pereira, Risaralda · Plataforma Desarrollo
+            </footer>
+          </main>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
