@@ -146,7 +146,9 @@
     // DATOS MAESTROS
     // ============================================================
 
-    const EMPLEADOS = [
+    // Lista semilla de empleados (solo se usa la primera vez; luego la lista
+    // viva se guarda en localStorage y es editable desde la interfaz).
+    const EMPLEADOS_DEFAULT = [
       "ALBERT JONNY MONTENEGRO AMEZQUITA",
       "ALEXANDER MARQUEZ",
       "ALEXANDRO RAMIREZ",
@@ -421,6 +423,7 @@
     // ============================================================
 
     const STORAGE_KEY = "metalcortes.horas_extra.v1";
+    const STORAGE_KEY_EMP = "metalcortes.empleados.v1";
 
     function loadRegs() {
       try {
@@ -433,6 +436,32 @@
 
     function saveRegs(regs) {
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(regs)); } catch {}
+    }
+
+    /** Ordena alfabéticamente (español) y elimina duplicados ignorando may/min y espacios. */
+    function ordenarEmpleados(lista) {
+      const vistos = new Set();
+      const out = [];
+      for (const nombre of lista) {
+        const clave = nombre.trim().toUpperCase();
+        if (clave && !vistos.has(clave)) { vistos.add(clave); out.push(nombre.trim()); }
+      }
+      return out.sort((a, b) => a.localeCompare(b, "es"));
+    }
+
+    function loadEmpleados() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_EMP);
+        if (!raw) return ordenarEmpleados(EMPLEADOS_DEFAULT);
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) && parsed.length
+          ? ordenarEmpleados(parsed)
+          : ordenarEmpleados(EMPLEADOS_DEFAULT);
+      } catch { return ordenarEmpleados(EMPLEADOS_DEFAULT); }
+    }
+
+    function saveEmpleados(emps) {
+      try { localStorage.setItem(STORAGE_KEY_EMP, JSON.stringify(emps)); } catch {}
     }
 
     // ============================================================
@@ -552,7 +581,125 @@
       );
     }
 
-    function Formulario({ onAdd }) {
+    /**
+     * Sección para administrar la lista de empleados: agregar nuevos y eliminar existentes.
+     * Es colapsable para no estorbar el flujo diario (agregar registros).
+     * Al eliminar, se informa cuántos registros tiene el empleado; los registros
+     * históricos NO se borran (se conservan para nómina), solo deja de poder
+     * seleccionarse al crear nuevos registros.
+     */
+    function GestionEmpleados({ empleados, onAgregar, onEliminar, conteoPorEmpleado }) {
+      const [abierto, setAbierto] = useState(false);
+      const [nuevo, setNuevo] = useState("");
+      const [error, setError] = useState("");
+      const [filtro, setFiltro] = useState("");
+
+      function handleAgregar() {
+        setError("");
+        const nombre = nuevo.trim().replace(/\s+/g, " ");
+        if (!nombre) { setError("Escribe el nombre del empleado."); return; }
+        if (nombre.length < 3) { setError("El nombre es demasiado corto."); return; }
+        const existe = empleados.some(e => e.toUpperCase() === nombre.toUpperCase());
+        if (existe) { setError("Ese empleado ya está en la lista."); return; }
+        onAgregar(nombre);
+        setNuevo("");
+      }
+
+      const visibles = filtro
+        ? empleados.filter(e => e.toLowerCase().includes(filtro.toLowerCase()))
+        : empleados;
+
+      return (
+        <section className="bg-white rounded-lg border border-gray-200 mb-6 overflow-hidden">
+          <button
+            className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50 transition"
+            onClick={() => setAbierto(o => !o)}
+          >
+            <div>
+              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Administrar empleados</h2>
+              <p className="text-xs mc-gray-text mt-0.5">Agregar nuevos empleados o eliminar existentes · {empleados.length} en la lista</p>
+            </div>
+            <span className={`group-chevron ${abierto ? "" : "collapsed"}`} style={{ color: "var(--mc-gray)", fontSize: "12px" }}>▼</span>
+          </button>
+
+          {abierto && (
+            <div className="px-5 pb-5 border-t border-gray-100 pt-4">
+              {/* Agregar nuevo */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end mb-4">
+                <div className="md:col-span-9">
+                  <label className="block text-xs font-semibold mc-gray-text mb-1">Nombre completo del nuevo empleado</label>
+                  <input
+                    type="text"
+                    value={nuevo}
+                    onChange={e => setNuevo(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") handleAgregar(); }}
+                    placeholder="Ej. JUAN CARLOS PÉREZ GÓMEZ"
+                    style={{ textTransform: "uppercase" }}
+                  />
+                </div>
+                <div className="md:col-span-3">
+                  <button className="btn-primary w-full" onClick={handleAgregar}>Agregar empleado</button>
+                </div>
+              </div>
+
+              {error && (
+                <div className="mb-3 text-xs px-3 py-2 rounded bg-red-50 text-red-700 border border-red-200">
+                  {error}
+                </div>
+              )}
+
+              {/* Buscador (útil cuando hay muchos) */}
+              {empleados.length > 8 && (
+                <div className="mb-3">
+                  <input
+                    type="text"
+                    value={filtro}
+                    onChange={e => setFiltro(e.target.value)}
+                    placeholder="Buscar empleado en la lista…"
+                  />
+                </div>
+              )}
+
+              {/* Lista de empleados */}
+              <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-80 overflow-y-auto">
+                {visibles.length === 0 ? (
+                  <div className="px-4 py-6 text-center text-xs mc-gray-text">
+                    {empleados.length === 0 ? "No hay empleados. Agrega el primero arriba." : "Ningún empleado coincide con la búsqueda."}
+                  </div>
+                ) : (
+                  visibles.map(emp => {
+                    const n = conteoPorEmpleado[emp] || 0;
+                    return (
+                      <div key={emp} className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-sm text-gray-900 truncate">{emp}</span>
+                          {n > 0 && (
+                            <span className="badge" style={{ background: "#F3F4F6", color: "var(--mc-gray)" }}>
+                              {n} {n === 1 ? "registro" : "registros"}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          className="text-xs mc-red-text hover:underline font-medium shrink-0 ml-3"
+                          onClick={() => onEliminar(emp, n)}
+                          title="Eliminar empleado de la lista"
+                        >Eliminar</button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              <p className="mt-3 text-[11px] mc-gray-text leading-relaxed">
+                Al eliminar un empleado que tenga registros, sus registros históricos se conservan en la tabla y en el CSV (para no afectar la nómina del período), pero ya no aparecerá disponible para agregar nuevos registros.
+              </p>
+            </div>
+          )}
+        </section>
+      );
+    }
+
+    function Formulario({ onAdd, empleados }) {
       const [empleado, setEmpleado] = useState("");
       const [fecha, setFecha] = useState("");
       const [inicio, setInicio] = useState("");
@@ -598,9 +745,9 @@
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
             <div className="md:col-span-4">
               <label className="block text-xs font-semibold mc-gray-text mb-1">Empleado</label>
-              <select value={empleado} onChange={e => setEmpleado(e.target.value)}>
-                <option value="">— Selecciona un empleado —</option>
-                {EMPLEADOS.map(emp => <option key={emp} value={emp}>{emp}</option>)}
+              <select value={empleado} onChange={e => setEmpleado(e.target.value)} disabled={empleados.length === 0}>
+                <option value="">{empleados.length === 0 ? "— No hay empleados registrados —" : "— Selecciona un empleado —"}</option>
+                {empleados.map(emp => <option key={emp} value={emp}>{emp}</option>)}
               </select>
             </div>
 
@@ -824,10 +971,12 @@
 
     function App() {
       const [regs, setRegs] = useState(() => loadRegs());
+      const [empleados, setEmpleados] = useState(() => loadEmpleados());
       const [filtroEmpleado, setFiltroEmpleado] = useState("");
       const [filtroMes, setFiltroMes] = useState("");
 
       useEffect(() => { saveRegs(regs); }, [regs]);
+      useEffect(() => { saveEmpleados(empleados); }, [empleados]);
 
       function addReg(r) { setRegs(prev => [r, ...prev]); }
       function delReg(id) {
@@ -837,6 +986,27 @@
         if (regs.length === 0) return;
         if (confirm(`¿Eliminar todos los ${regs.length} registros? Esta acción no se puede deshacer.`))
           setRegs([]);
+      }
+
+      // Conteo de registros por empleado (para mostrar y advertir al eliminar)
+      const conteoPorEmpleado = useMemo(() => {
+        const c = {};
+        regs.forEach(r => { c[r.empleado] = (c[r.empleado] || 0) + 1; });
+        return c;
+      }, [regs]);
+
+      function addEmpleado(nombre) {
+        setEmpleados(prev => ordenarEmpleados([...prev, nombre]));
+      }
+      function delEmpleado(nombre, nRegistros) {
+        const msg = nRegistros > 0
+          ? `"${nombre}" tiene ${nRegistros} ${nRegistros === 1 ? "registro" : "registros"}.\n\nSe eliminará de la lista de empleados, pero esos registros se conservarán en la tabla y el CSV. ¿Continuar?`
+          : `¿Eliminar a "${nombre}" de la lista de empleados?`;
+        if (confirm(msg)) {
+          setEmpleados(prev => prev.filter(e => e !== nombre));
+          // Si estaba filtrado por ese empleado, limpiamos el filtro
+          if (filtroEmpleado === nombre) setFiltroEmpleado("");
+        }
       }
 
       // Filtros
@@ -873,7 +1043,14 @@
               <strong>Herramienta provisional.</strong> A futuro será integrada en el módulo del líder de Gestión Humana de la plataforma Metalcortes. Los datos se guardan localmente en este navegador.
             </div>
 
-            <Formulario onAdd={addReg} />
+            <GestionEmpleados
+              empleados={empleados}
+              onAgregar={addEmpleado}
+              onEliminar={delEmpleado}
+              conteoPorEmpleado={conteoPorEmpleado}
+            />
+
+            <Formulario onAdd={addReg} empleados={empleados} />
 
             {/* Tarjetas resumen */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
@@ -911,7 +1088,7 @@
                   <label className="block text-xs font-semibold mc-gray-text mb-1">Filtrar por empleado</label>
                   <select value={filtroEmpleado} onChange={e => setFiltroEmpleado(e.target.value)}>
                     <option value="">Todos los empleados</option>
-                    {EMPLEADOS.map(emp => <option key={emp} value={emp}>{emp}</option>)}
+                    {ordenarEmpleados([...empleados, ...Object.keys(conteoPorEmpleado)]).map(emp => <option key={emp} value={emp}>{emp}</option>)}
                   </select>
                 </div>
                 <div className="md:col-span-3">
