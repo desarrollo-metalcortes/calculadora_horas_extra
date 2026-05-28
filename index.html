@@ -588,11 +588,14 @@
      * históricos NO se borran (se conservan para nómina), solo deja de poder
      * seleccionarse al crear nuevos registros.
      */
-    function GestionEmpleados({ empleados, onAgregar, onEliminar, conteoPorEmpleado }) {
+    function GestionEmpleados({ empleados, onAgregar, onEliminar, onRenombrar, conteoPorEmpleado }) {
       const [abierto, setAbierto] = useState(false);
       const [nuevo, setNuevo] = useState("");
       const [error, setError] = useState("");
       const [filtro, setFiltro] = useState("");
+      // Edición inline: { original, valor } del empleado que se está renombrando
+      const [editando, setEditando] = useState(null);
+      const [errorEdit, setErrorEdit] = useState("");
 
       function handleAgregar() {
         setError("");
@@ -603,6 +606,30 @@
         if (existe) { setError("Ese empleado ya está en la lista."); return; }
         onAgregar(nombre);
         setNuevo("");
+      }
+
+      function iniciarEdicion(emp) {
+        setErrorEdit("");
+        setEditando({ original: emp, valor: emp });
+      }
+      function cancelarEdicion() {
+        setEditando(null);
+        setErrorEdit("");
+      }
+      function guardarEdicion() {
+        setErrorEdit("");
+        const nombre = (editando.valor || "").trim().replace(/\s+/g, " ");
+        if (!nombre) { setErrorEdit("El nombre no puede quedar vacío."); return; }
+        if (nombre.length < 3) { setErrorEdit("El nombre es demasiado corto."); return; }
+        // Si no cambió nada (ni siquiera mayúsculas), simplemente cerramos
+        if (nombre === editando.original) { cancelarEdicion(); return; }
+        // Evitar colisión con OTRO empleado distinto del que se edita
+        const colisiona = empleados.some(e =>
+          e !== editando.original && e.toUpperCase() === nombre.toUpperCase()
+        );
+        if (colisiona) { setErrorEdit("Ya existe otro empleado con ese nombre."); return; }
+        onRenombrar(editando.original, nombre);
+        cancelarEdicion();
       }
 
       const visibles = filtro
@@ -617,7 +644,7 @@
           >
             <div>
               <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Administrar empleados</h2>
-              <p className="text-xs mc-gray-text mt-0.5">Agregar nuevos empleados o eliminar existentes · {empleados.length} en la lista</p>
+              <p className="text-xs mc-gray-text mt-0.5">Agregar, renombrar o eliminar empleados · {empleados.length} en la lista</p>
             </div>
             <span className={`group-chevron ${abierto ? "" : "collapsed"}`} style={{ color: "var(--mc-gray)", fontSize: "12px" }}>▼</span>
           </button>
@@ -669,6 +696,36 @@
                 ) : (
                   visibles.map(emp => {
                     const n = conteoPorEmpleado[emp] || 0;
+                    const enEdicion = editando && editando.original === emp;
+                    if (enEdicion) {
+                      return (
+                        <div key={emp} className="px-4 py-2.5 bg-amber-50">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={editando.valor}
+                              autoFocus
+                              onChange={e => setEditando({ ...editando, valor: e.target.value })}
+                              onKeyDown={e => {
+                                if (e.key === "Enter") guardarEdicion();
+                                if (e.key === "Escape") cancelarEdicion();
+                              }}
+                              style={{ textTransform: "uppercase" }}
+                            />
+                            <button className="btn-primary shrink-0" onClick={guardarEdicion}>Guardar</button>
+                            <button className="btn-secondary shrink-0" onClick={cancelarEdicion}>Cancelar</button>
+                          </div>
+                          {n > 0 && (
+                            <p className="text-[11px] mc-gray-text mt-1.5">
+                              Se actualizará el nombre también en sus {n} {n === 1 ? "registro" : "registros"}.
+                            </p>
+                          )}
+                          {errorEdit && (
+                            <p className="text-[11px] text-red-600 mt-1.5">{errorEdit}</p>
+                          )}
+                        </div>
+                      );
+                    }
                     return (
                       <div key={emp} className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50">
                         <div className="flex items-center gap-2 min-w-0">
@@ -679,11 +736,18 @@
                             </span>
                           )}
                         </div>
-                        <button
-                          className="text-xs mc-red-text hover:underline font-medium shrink-0 ml-3"
-                          onClick={() => onEliminar(emp, n)}
-                          title="Eliminar empleado de la lista"
-                        >Eliminar</button>
+                        <div className="flex items-center gap-3 shrink-0 ml-3">
+                          <button
+                            className="text-xs mc-gray-text hover:text-gray-900 font-medium"
+                            onClick={() => iniciarEdicion(emp)}
+                            title="Editar nombre del empleado"
+                          >Editar</button>
+                          <button
+                            className="text-xs mc-red-text hover:underline font-medium"
+                            onClick={() => onEliminar(emp, n)}
+                            title="Eliminar empleado de la lista"
+                          >Eliminar</button>
+                        </div>
                       </div>
                     );
                   })
@@ -691,7 +755,7 @@
               </div>
 
               <p className="mt-3 text-[11px] mc-gray-text leading-relaxed">
-                Al eliminar un empleado que tenga registros, sus registros históricos se conservan en la tabla y en el CSV (para no afectar la nómina del período), pero ya no aparecerá disponible para agregar nuevos registros.
+                Al renombrar un empleado, el nuevo nombre se aplica también a todos sus registros. Al eliminar un empleado que tenga registros, sus registros históricos se conservan en la tabla y en el CSV (para no afectar la nómina del período), pero ya no aparecerá disponible para agregar nuevos registros.
               </p>
             </div>
           )}
@@ -829,7 +893,141 @@
       );
     }
 
-    function Tabla({ regs, onDelete }) {
+    /**
+     * Modal para editar un registro existente (empleado, fecha, hora inicio y fin).
+     * Muestra una vista previa en vivo del cálculo, igual que el formulario de creación.
+     * El dropdown de empleados incluye, además de la lista actual, al empleado actual
+     * del registro (por si fue eliminado de la lista pero el registro se conserva).
+     */
+    function EditarRegistroModal({ registro, empleados, onGuardar, onCerrar }) {
+      const [empleado, setEmpleado] = useState(registro.empleado);
+      const [fecha, setFecha] = useState(registro.fecha);
+      const [inicio, setInicio] = useState(registro.inicio);
+      const [fin, setFin] = useState(registro.fin);
+      const [error, setError] = useState("");
+
+      // Cerrar con Escape
+      useEffect(() => {
+        function onKey(e) { if (e.key === "Escape") onCerrar(); }
+        document.addEventListener("keydown", onKey);
+        return () => document.removeEventListener("keydown", onKey);
+      }, [onCerrar]);
+
+      const opcionesEmpleado = useMemo(
+        () => ordenarEmpleados([...empleados, registro.empleado]),
+        [empleados, registro.empleado]
+      );
+
+      const preview = useMemo(() => {
+        if (!fecha || !inicio || !fin) return null;
+        try { return calcular({ fecha, inicio, fin }); } catch { return null; }
+      }, [fecha, inicio, fin]);
+
+      function handleGuardar() {
+        setError("");
+        if (!empleado) { setError("Selecciona un empleado."); return; }
+        if (!fecha)    { setError("Selecciona la fecha del registro."); return; }
+        if (!inicio)   { setError("Indica la hora de inicio."); return; }
+        if (!fin)      { setError("Indica la hora de finalización."); return; }
+        if (hmToMin(inicio) === hmToMin(fin)) {
+          setError("La hora de inicio y finalización no pueden ser iguales.");
+          return;
+        }
+        onGuardar(registro.id, { empleado, fecha, inicio, fin });
+      }
+
+      return (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(17,24,39,0.55)" }}
+          onClick={onCerrar}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl w-full max-w-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Cabecera */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Editar registro</h2>
+              <button className="mc-gray-text hover:text-gray-900 text-lg leading-none" onClick={onCerrar} title="Cerrar">✕</button>
+            </div>
+
+            {/* Cuerpo */}
+            <div className="px-5 py-5">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                <div className="md:col-span-12">
+                  <label className="block text-xs font-semibold mc-gray-text mb-1">Empleado</label>
+                  <select value={empleado} onChange={e => setEmpleado(e.target.value)}>
+                    {opcionesEmpleado.map(emp => <option key={emp} value={emp}>{emp}</option>)}
+                  </select>
+                </div>
+                <div className="md:col-span-6">
+                  <label className="block text-xs font-semibold mc-gray-text mb-1">Fecha</label>
+                  <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} />
+                </div>
+                <div className="md:col-span-3">
+                  <label className="block text-xs font-semibold mc-gray-text mb-1">Hora inicio</label>
+                  <input type="time" value={inicio} onChange={e => setInicio(e.target.value)} step="60" />
+                </div>
+                <div className="md:col-span-3">
+                  <label className="block text-xs font-semibold mc-gray-text mb-1">Hora fin</label>
+                  <input type="time" value={fin} onChange={e => setFin(e.target.value)} step="60" />
+                </div>
+              </div>
+
+              {error && (
+                <div className="mt-3 text-xs px-3 py-2 rounded bg-red-50 text-red-700 border border-red-200">
+                  {error}
+                </div>
+              )}
+
+              {/* Vista previa del cálculo */}
+              {preview && (
+                <div className="mt-4 grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">
+                  <div className="px-3 py-2 rounded bg-gray-50 border border-gray-200">
+                    <div className="mc-gray-text font-semibold uppercase text-[10px]">Día</div>
+                    <div className="font-medium">{preview.diaSemana}</div>
+                  </div>
+                  <div className={`px-3 py-2 rounded border ${preview.tipoDia === "Domingo" || preview.tipoDia === "Festivo" ? "bg-red-50 border-red-200" : "bg-gray-50 border-gray-200"}`}>
+                    <div className="mc-gray-text font-semibold uppercase text-[10px]">Tipo</div>
+                    <div className="font-medium">{preview.tipoDia}</div>
+                    {preview.nombreFestivo && <div className="text-[10px] mt-0.5">{preview.nombreFestivo}</div>}
+                  </div>
+                  <div className="px-3 py-2 rounded bg-gray-50 border border-gray-200">
+                    <div className="mc-gray-text font-semibold uppercase text-[10px]">HE Diurnas</div>
+                    <div className="font-bold">{fmtHM(preview.minExtraDiurnas)}</div>
+                    <div className="text-[10px] mc-gray-text">{Math.round(preview.minExtraDiurnas)} min</div>
+                  </div>
+                  <div className="px-3 py-2 rounded bg-gray-50 border border-gray-200">
+                    <div className="mc-gray-text font-semibold uppercase text-[10px]">HE Nocturnas</div>
+                    <div className="font-bold">{fmtHM(preview.minExtraNocturnas)}</div>
+                    <div className="text-[10px] mc-gray-text">{Math.round(preview.minExtraNocturnas)} min</div>
+                  </div>
+                  <div className="px-3 py-2 rounded bg-gray-50 border border-gray-200">
+                    <div className="mc-gray-text font-semibold uppercase text-[10px]">Dom/Fest D</div>
+                    <div className="font-bold">{fmtHM(preview.minDomFestDiurnas)}</div>
+                    <div className="text-[10px] mc-gray-text">{Math.round(preview.minDomFestDiurnas)} min</div>
+                  </div>
+                  <div className="px-3 py-2 rounded bg-gray-50 border border-gray-200">
+                    <div className="mc-gray-text font-semibold uppercase text-[10px]">Dom/Fest N</div>
+                    <div className="font-bold">{fmtHM(preview.minDomFestNocturnas)}</div>
+                    <div className="text-[10px] mc-gray-text">{Math.round(preview.minDomFestNocturnas)} min</div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Pie */}
+            <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-200">
+              <button className="btn-secondary" onClick={onCerrar}>Cancelar</button>
+              <button className="btn-primary" onClick={handleGuardar}>Guardar cambios</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function Tabla({ regs, onDelete, onEdit }) {
       // Estado de grupos colapsados: { [empleado]: true } si está colapsado
       const [colapsados, setColapsados] = useState({});
 
@@ -879,7 +1077,7 @@
                   <th className="text-right px-4 py-3">D/F Diur.</th>
                   <th className="text-right px-4 py-3">D/F Noct.</th>
                   <th className="text-right px-4 py-3">Total</th>
-                  <th className="px-4 py-3 w-20"></th>
+                  <th className="text-right px-4 py-3 w-28">Acciones</th>
                 </tr>
               </thead>
 
@@ -946,11 +1144,18 @@
                           <td className="px-4 py-3 text-right tabular-nums"><CeldaTiempo min={c.minDomFestNocturnas} /></td>
                           <td className="px-4 py-3 text-right tabular-nums"><CeldaTiempo min={c.totalMin} bold /></td>
                           <td className="px-4 py-3 text-right">
-                            <button
-                              onClick={() => onDelete(r.id)}
-                              className="text-xs mc-red-text hover:underline font-medium"
-                              title="Eliminar este registro"
-                            >Eliminar</button>
+                            <div className="flex items-center gap-3 justify-end">
+                              <button
+                                onClick={() => onEdit(r)}
+                                className="text-xs mc-gray-text hover:text-gray-900 font-medium"
+                                title="Editar este registro"
+                              >Editar</button>
+                              <button
+                                onClick={() => onDelete(r.id)}
+                                className="text-xs mc-red-text hover:underline font-medium"
+                                title="Eliminar este registro"
+                              >Eliminar</button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -974,11 +1179,16 @@
       const [empleados, setEmpleados] = useState(() => loadEmpleados());
       const [filtroEmpleado, setFiltroEmpleado] = useState("");
       const [filtroMes, setFiltroMes] = useState("");
+      const [editandoReg, setEditandoReg] = useState(null);  // registro en edición (modal)
 
       useEffect(() => { saveRegs(regs); }, [regs]);
       useEffect(() => { saveEmpleados(empleados); }, [empleados]);
 
       function addReg(r) { setRegs(prev => [r, ...prev]); }
+      function updateReg(id, patch) {
+        setRegs(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r));
+        setEditandoReg(null);
+      }
       function delReg(id) {
         if (confirm("¿Eliminar este registro?")) setRegs(prev => prev.filter(r => r.id !== id));
       }
@@ -997,6 +1207,14 @@
 
       function addEmpleado(nombre) {
         setEmpleados(prev => ordenarEmpleados([...prev, nombre]));
+      }
+      function renombrarEmpleado(original, nuevo) {
+        // Actualiza la lista de empleados...
+        setEmpleados(prev => ordenarEmpleados(prev.map(e => e === original ? nuevo : e)));
+        // ...y propaga el nuevo nombre a todos los registros de ese empleado.
+        setRegs(prev => prev.map(r => r.empleado === original ? { ...r, empleado: nuevo } : r));
+        // Mantener coherente el filtro activo
+        if (filtroEmpleado === original) setFiltroEmpleado(nuevo);
       }
       function delEmpleado(nombre, nRegistros) {
         const msg = nRegistros > 0
@@ -1047,6 +1265,7 @@
               empleados={empleados}
               onAgregar={addEmpleado}
               onEliminar={delEmpleado}
+              onRenombrar={renombrarEmpleado}
               conteoPorEmpleado={conteoPorEmpleado}
             />
 
@@ -1106,7 +1325,7 @@
               </div>
             </section>
 
-            <Tabla regs={regsVisibles} onDelete={delReg} />
+            <Tabla regs={regsVisibles} onDelete={delReg} onEdit={setEditandoReg} />
 
             {/* Reglas de cálculo */}
             <details className="mt-6 bg-white rounded-lg border border-gray-200 p-4">
@@ -1126,6 +1345,15 @@
               Metalcortes Risaralda S.A.S. · Pereira, Risaralda · Plataforma Desarrollo
             </footer>
           </main>
+
+          {editandoReg && (
+            <EditarRegistroModal
+              registro={editandoReg}
+              empleados={empleados}
+              onGuardar={updateReg}
+              onCerrar={() => setEditandoReg(null)}
+            />
+          )}
         </div>
       );
     }
